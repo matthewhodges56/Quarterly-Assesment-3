@@ -2,9 +2,9 @@
 from tkinter import *
 from tkinter import ttk
 import sqlite3
+import random
 
-### COURSE QUESTIONS START ###
-
+# -- Course Questions --
 # Econ questions
 econ_questions = [
     {"question": "What is the basic economic problem?", "choice_a": "Scarcity", "choice_b": "Inflation", "choice_c": "Trade", "choice_d": "Technology", "correct_answer": "A", "feedback": "The basic economic problem is scarcity."}, 
@@ -74,14 +74,110 @@ business_organizational_behavior_questions = [
     {"question": "What is job satisfaction?", "choice_a": "Employee's feeling about their job", "choice_b": "Workload level", "choice_c": "Company revenue", "choice_d": "Employee's pay", "correct_answer": "A", "feedback": "Job satisfaction is an employee's feeling about their job."},
     {"question": "What is a formal group?", "choice_a": "An official group within an organization", "choice_b": "A casual team meeting", "choice_c": "Temporary employees", "choice_d": "A non-productive team", "correct_answer": "A", "feedback": "A formal group is an official group within an organization."}
 ]
+# -- Course Questions --
 
-### COURSE QUESTIONS END ###
+class QuestionDisplay:
+    def __init__(self, parent, questions):
+        self.parent = parent
+        self.questions = questions
+        self.currentQuestion = 0
+        self.correctAnswers = 0
+
+        # Label for question
+        self.questionLabel = Label(parent, text="", font=("Arial", 12), wraplength=400)
+        self.questionLabel.place(x=50, y=30)
+
+        self.answerVar = StringVar()
+
+        # Radio buttons for choices
+        self.choice_a = Radiobutton(parent, text="", variable=self.answerVar, value="A", font=("Arial", 10), tristatevalue="x")
+        self.choice_a.place(x=70, y=100)
+
+        self.choice_b = Radiobutton(parent, text="", variable=self.answerVar, value="B", font=("Arial", 10), tristatevalue="x")
+        self.choice_b.place(x=70, y=140)
+
+        self.choice_c = Radiobutton(parent, text="", variable=self.answerVar, value="C", font=("Arial", 10), tristatevalue="x")
+        self.choice_c.place(x=70, y=180)
+
+        self.choice_d = Radiobutton(parent, text="", variable=self.answerVar, value="D", font=("Arial", 10), tristatevalue="x")
+        self.choice_d.place(x=70, y=220)
+
+        # Label for feedback
+        self.feedbackLabel = Label(parent, text="", font=("Arial", 10), wraplength=400, fg="green")
+        self.feedbackLabel.place(x=50, y=260)
+
+        # Submit answer button (ttk.button is so much better)
+        self.submitButton = ttk.Button(parent, text="Submit Answer", command=self.submitAnswer, takefocus=False)
+        self.submitButton.place(x=180, y=310)
+
+        # Call load question method
+        self.loadQuestion()
+
+    def loadQuestion(self):
+        # Get the current question
+        questionData = self.questions[self.currentQuestion]
+
+        # Setup question and options
+        self.questionLabel.config(text=questionData["question"])
+        self.choice_a.config(text=f"A. {questionData['choice_a']}")
+        self.choice_b.config(text=f"B. {questionData['choice_b']}")
+        self.choice_c.config(text=f"C. {questionData['choice_c']}")
+        self.choice_d.config(text=f"D. {questionData['choice_d']}")
+
+        # Reset answer selection
+        self.answerVar.set("")
+        self.feedbackLabel.config(text="")
+
+    def submitAnswer(self):
+        selectedAnswer = self.answerVar.get()
+        
+        # Check if no answer is selected
+        if not selectedAnswer:
+            self.feedbackLabel.config(text="Please select an answer before submitting.", fg="red")
+            return 
+
+        correctAnswer = self.questions[self.currentQuestion]["correct_answer"]
+
+        # Check if the answer is correct and give feedback
+        if selectedAnswer == correctAnswer:
+            self.feedbackLabel.config(text="Correct! " + self.questions[self.currentQuestion]["feedback"], fg="green")
+            self.correctAnswers += 1
+        else:
+            self.feedbackLabel.config(text="Incorrect. " + self.questions[self.currentQuestion]["feedback"], fg="red")
+
+        # Move to the next question after a brief delay
+        self.parent.after(2000, self.nextQuestion)
+
+    def nextQuestion(self):
+        # Check if there are more questions
+        self.currentQuestion += 1
+
+        if self.currentQuestion < len(self.questions):
+            self.loadQuestion()
+        else:
+            self.showFinalScore()
+
+    def showFinalScore(self):
+        self.questionLabel.config(text=f"You answered {self.correctAnswers} out of {len(self.questions)} questions correctly!")
+        self.choice_a.place_forget()
+        self.choice_b.place_forget()
+        self.choice_c.place_forget()
+        self.choice_d.place_forget()
+        self.submitButton.place_forget()
+        self.feedbackLabel.config(text="")
+
+        # Close the quiz window after displaying the score (2 seconds)
+        self.parent.after(2000, self.closeQuizWindow)
+
+    def closeQuizWindow(self):
+        # Close the quiz window 
+        self.parent.destroy()  
 
 # Database Setup 
 conn = sqlite3.connect("quiz_bowl.db")
 c = conn.cursor()
 
-# Table creation 
+# Database functions
 def createCourseTable(course):
     c.execute(f"""
     CREATE TABLE IF NOT EXISTS {course} (
@@ -96,26 +192,50 @@ def createCourseTable(course):
     )
     """)
 
-# Loop to create tables for each course
-courses = ["econ", "art", "statistics", "business_database_management", "business_organizational_behavior"]
-for course in courses:
-    createCourseTable(course)
-
 # Function to add a question to a course
-def addQuestion(table_name, question_data):
+def addQuestion(table_name, questionData):
     c.execute(f"""
         INSERT INTO {table_name} (question, choice_a, choice_b, choice_c, choice_d, correct_answer, feedback)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
-        question_data["question"], 
-        question_data["choice_a"], 
-        question_data["choice_b"], 
-        question_data["choice_c"], 
-        question_data["choice_d"], 
-        question_data["correct_answer"], 
-        question_data["feedback"]
+        questionData["question"], 
+        questionData["choice_a"], 
+        questionData["choice_b"], 
+        questionData["choice_c"], 
+        questionData["choice_d"], 
+        questionData["correct_answer"], 
+        questionData["feedback"]
     ))
     conn.commit()
+
+def removeQuestion(course, questionID):
+    c.execute(f"DELETE FROM {course} WHERE id = ?", (questionID,))
+    conn.commit()
+
+def getQuestions(course):
+    c.execute(f"SELECT * FROM {course}")
+    questions = c.fetchall()
+    
+    # Print each question's details
+    for question in questions:
+        print(f"ID: {question[0]}")
+        print(f"Question: {question[1]}")
+        print(f"A: {question[2]}")
+        print(f"B: {question[3]}")
+        print(f"C: {question[4]}")
+        print(f"D: {question[5]}")
+        print(f"Correct Answer: {question[6]}")
+        print(f"Feedback: {question[7]}")
+
+        # Readability!
+        print("="*30)  
+    
+    return questions
+
+# Loop to create tables for each course
+courses = ["econ", "art", "statistics", "business_database_management", "business_organizational_behavior"]
+for course in courses:
+    createCourseTable(course)
 
 # Dictionary to map each subject list to its corresponding table name
 subject_tables = {
@@ -128,10 +248,79 @@ subject_tables = {
 
 # Loop through each subject and its list of questions, then add each question to the database
 for table_name, questions_list in subject_tables.items():
-    for question_data in questions_list:
-        addQuestion(table_name, question_data)
+    for questionData in questions_list:
+        addQuestion(table_name, questionData)
 
+# Setup tkinter and basic window elements
+root = Tk()
+root.geometry("500x350")
+root.title("Quiz")
+root.resizable(False, False)
 
+# Label for dropdown box
+categoryLabel = ttk.Label(root, text="Select Your Category", font=("Arial", 14))
+categoryLabel.place(relx=0.5, rely=0.4, anchor='center')
+
+# List for courses (with formal names)
+categories = ["Economics", "Art", "Statistics", "Business Database Mgmt", "Business Org Behavior"]
+
+# Category dropdown box, also made it read only
+categoryDropdown = ttk.Combobox(root, values=categories, font=("Arial", 12), state="readonly", width=20)
+# Default text for the dropdown
+categoryDropdown.set("Select Category")  
+categoryDropdown.place(relx=0.5, rely=0.5, anchor='center')
+
+# Start quiz button function
+def startQuiz():
+    # If user doesn't select a category, show error
+    if categoryDropdown.get() == "Select Category":
+        errorLabel.config(text="Please select a category.", foreground="red")
+    else:
+        # Clear the error message if a valid category is selected
+        errorLabel.config(text="")
+
+        # Map dropdown selection to table name
+        subjects = {
+            "Economics": "econ",
+            "Art": "art",
+            "Statistics": "statistics",
+            "Business Database Mgmt": "business_database_management",
+            "Business Org Behavior": "business_organizational_behavior"
+        }
+        selectedCategory = subjects[categoryDropdown.get()]
+
+        # Fetch all 10 questions from the selected table
+        c.execute(f"SELECT question, choice_a, choice_b, choice_c, choice_d, correct_answer, feedback FROM {selectedCategory} LIMIT 10")
+        questions = [{"question": row[0], "choice_a": row[1], "choice_b": row[2], "choice_c": row[3], "choice_d": row[4], "correct_answer": row[5], "feedback": row[6]} for row in c.fetchall()]
+
+        # Shuffle questions to randomize order
+        random.shuffle(questions)
+
+        # Create a new window for the quiz
+        quizWindow = Toplevel()
+        quizWindow.geometry("500x400")
+        # Dynamic title
+        quizWindow.title(f"{categoryDropdown.get()} Quiz")
+
+        # Initialize class with the quiz window and questions
+        QuestionDisplay(quizWindow, questions)
+
+# Label for error
+errorLabel = ttk.Label(root, text="", font=("Arial", 10))
+errorLabel.place(relx=0.5, rely=0.75, anchor='center')
+
+# Start quiz button
+startButton = ttk.Button(root, text="Start Quiz", takefocus=False, command=startQuiz)
+startButton.place(relx=0.5, rely=0.65, anchor='center')
+
+# Open the window
+root.mainloop()
 
 # Close the database connection
 conn.close()
+
+# cant lie this took me a while, i think i made it way more complicated than it needs to be....
+# ↓↓↓↓↓ not sure what this means ↓↓↓↓↓
+# "Your GitHub folder should include a way for you to add/remove/read current
+#  questions from the database in the back end."
+# SO i just added functions for that? i dont use all but they are there
