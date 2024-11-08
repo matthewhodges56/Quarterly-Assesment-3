@@ -172,6 +172,9 @@ class QuestionDisplay:
     def closeQuizWindow(self):
         # Close the quiz window 
         self.parent.destroy()  
+        
+        # Show main window
+        root.deiconify()
 
 # Database Setup 
 conn = sqlite3.connect("quiz_bowl.db")
@@ -296,9 +299,13 @@ def startQuiz():
         # Shuffle questions to randomize order
         random.shuffle(questions)
 
+        # Hide main window
+        root.withdraw()
+
         # Create a new window for the quiz
         quizWindow = Toplevel()
         quizWindow.geometry("500x400")
+        quizWindow.resizable(False, False)
         # Dynamic title
         quizWindow.title(f"{categoryDropdown.get()} Quiz")
 
